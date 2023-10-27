@@ -60,6 +60,11 @@
       <artifactId>httpclient</artifactId>
       <version>4.5.13</version>
     </dependency>
+    <dependency>
+      <groupId>org.knowm.xchart</groupId>
+      <artifactId>xchart</artifactId>
+      <version>3.8.0</version>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

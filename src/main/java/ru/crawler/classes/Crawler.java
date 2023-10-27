@@ -17,6 +17,11 @@ import java.util.*;
 public class Crawler {
     private final Connection conn;
 
+    private List<Integer> wordAmount = new ArrayList<>();
+    private List<Integer> urlAmount = new ArrayList<>();
+    private List<Integer> refAmount = new ArrayList<>();
+
+
     public Crawler(String dbFileName) {
         try {
             conn = DriverManager.getConnection("jdbc:sqlite:" + dbFileName);
@@ -44,20 +49,20 @@ public class Crawler {
         Statement statement;
         try {
             statement = conn.createStatement();
-        System.out.println("Создание URLList");
-        statement.execute("CREATE TABLE IF NOT EXISTS urllist (id INTEGER PRIMARY KEY, url TEXT)");
+            System.out.println("Создание URLList");
+            statement.execute("CREATE TABLE IF NOT EXISTS urllist (id INTEGER PRIMARY KEY, url TEXT)");
 
-        System.out.println("Создание WordList");
-        statement.execute("CREATE TABLE IF NOT EXISTS wordlist (id INTEGER PRIMARY KEY, word TEXT, is_filtered INTEGER)");
+            System.out.println("Создание WordList");
+            statement.execute("CREATE TABLE IF NOT EXISTS wordlist (id INTEGER PRIMARY KEY, word TEXT, is_filtered INTEGER)");
 
-        System.out.println("Создание WordLocation");
-        statement.execute("CREATE TABLE IF NOT EXISTS wordlocation (id INTEGER PRIMARY KEY, wordId INTEGER, URLId INTEGER, location INTEGER, FOREIGN KEY (wordId) REFERENCES wordlist(id), FOREIGN KEY (URLId) REFERENCES urllist(id))");
+            System.out.println("Создание WordLocation");
+            statement.execute("CREATE TABLE IF NOT EXISTS wordlocation (id INTEGER PRIMARY KEY, wordId INTEGER, URLId INTEGER, location INTEGER, FOREIGN KEY (wordId) REFERENCES wordlist(id), FOREIGN KEY (URLId) REFERENCES urllist(id))");
 
-        System.out.println("Создание Link");
-        statement.execute("CREATE TABLE IF NOT EXISTS linkBetweenURL (id INTEGER PRIMARY KEY, fromURLId INTEGER, toURLId INTEGER, FOREIGN KEY (fromURLId) REFERENCES urllist(id), FOREIGN KEY (toURLId) REFERENCES urllist(id))");
+            System.out.println("Создание Link");
+            statement.execute("CREATE TABLE IF NOT EXISTS linkBetweenURL (id INTEGER PRIMARY KEY, fromURLId INTEGER, toURLId INTEGER, FOREIGN KEY (fromURLId) REFERENCES urllist(id), FOREIGN KEY (toURLId) REFERENCES urllist(id))");
 
-        System.out.println("Создание LinkWords");
-        statement.execute("CREATE TABLE IF NOT EXISTS linkwords (id INTEGER PRIMARY KEY, wordId INTEGER, linkId INTEGER, FOREIGN KEY (wordId) REFERENCES wordlist(id), FOREIGN KEY (linkId) REFERENCES linkBetweenURL(id))");
+            System.out.println("Создание LinkWords");
+            statement.execute("CREATE TABLE IF NOT EXISTS linkwords (id INTEGER PRIMARY KEY, wordId INTEGER, linkId INTEGER, FOREIGN KEY (wordId) REFERENCES wordlist(id), FOREIGN KEY (linkId) REFERENCES linkBetweenURL(id))");
         } catch (SQLException e) {
             System.out.println("Ошибка в создании таблиц");
         }
@@ -87,26 +92,31 @@ public class Crawler {
                                 Elements links = doc.select("a");
                                 addIndex(doc, url);
                                 System.out.println("addIndex забрал: " + url);
+                                int i = 0;
                                 for (Element link : links) {
                                     String href = link.attr("href");
                                     if (isValidHref(href)) {
                                         String absoluteUrl = makeAbsoluteUrl(url, href);
-                                        if(isIndexedUrl(absoluteUrl)) {
+                                        if(!isIndexedUrl(absoluteUrl)) {
                                             System.out.println("Новые: " + absoluteUrl);
                                             nextLevel.add(absoluteUrl);
                                             addLinkRef(url, absoluteUrl);
                                         }
                                     }
+                                    i++;
                                 }
+                                System.out.println(nextLevel.size());
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
+                        reloadAmounts();
                     }
                 }
                 queue.addAll(nextLevel);
             }
         } finally {
+            draw();
             close();
         }
     }
@@ -173,6 +183,7 @@ public class Crawler {
         int urlId = getEntryId("urllist", "url", url, true);
         int i = 0;
         // Связываем каждое слово с этим URL
+        System.out.println("URL №" + urlId);
         for (String word : words) {
             if(isFiltred(word)){
                 continue;
@@ -202,13 +213,10 @@ public class Crawler {
 
     public boolean isIndexedUrl(String url){
         int urlId = getEntryId("urllist", "url", url, false);
-        if(url.startsWith("https://lenta.ru")){
-            if (urlId == -1)
+            if (urlId != -1)
                 return true;
             else
                 return false;
-        } else
-            return false;
     }
 
     private boolean isValidHref(String href) {
@@ -243,16 +251,12 @@ public class Crawler {
             insertLinkStatement.executeUpdate();
             int linkWord = insertLinkStatement.getGeneratedKeys().getInt(1);
 
-            addIndex(Jsoup.connect(urlTo).get(), urlTo);
-
             List<Integer> wordIds = getWordIdsForURL(toURLId);
             for (int wordId : wordIds) {
                 addLinkWord(wordId, linkWord);
             }
         } catch (SQLException e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -337,12 +341,64 @@ public class Crawler {
     }
 
     private boolean isFiltred(String word){
+        String wordLower = word.toLowerCase();
         for (Words properties : Words.values()){
-            if (properties.getValue().equals(word)){
+            if (properties.getValue().equalsIgnoreCase(wordLower)){
                 return true;
             }
         }
         return false;
     };
+
+    public void reloadAmounts() {
+        Statement statement;
+        try {
+            // Выполняем SQL-запросы и загружаем данные
+            statement = conn.createStatement();
+
+            ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM wordList;");
+            if (result.next()) {
+                int count = result.getInt(1);
+                wordAmount.add(count);
+            }
+
+            result = statement.executeQuery("SELECT COUNT(*) FROM URLList;");
+            if (result.next()) {
+                int count = result.getInt(1);
+                urlAmount.add(count);
+            }
+
+            result = statement.executeQuery("SELECT COUNT(*) FROM linkBetweenURL;");
+            if (result.next()) {
+                int count = result.getInt(1);
+                refAmount.add(count);
+            }
+
+            statement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void draw(){
+        Graphs graphs = new Graphs();
+
+        List<Integer> amount = new ArrayList<>();
+        for (int i = 0; i < refAmount.size(); i++)
+            amount.add(i);
+        graphs.drawRef(amount,refAmount);
+
+        amount.clear();
+        for (int i = 0; i < urlAmount.size(); i++)
+            amount.add(i);
+        graphs.drawUrl(amount, urlAmount);
+
+        amount.clear();
+        for (int i = 0; i < wordAmount.size(); i++)
+            amount.add(i);
+        graphs.drawWords(amount, wordAmount);
+
+
+    }
 
 }

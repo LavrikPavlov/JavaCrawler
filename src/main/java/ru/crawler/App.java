@@ -14,7 +14,7 @@ public class App
         crawler.initDB();
         List<String> urlList = new ArrayList<>();
         urlList.add("https://lenta.ru");
-        crawler.crawl(urlList, 2);
+        crawler.crawl(urlList, 1);
     }
 
 }
