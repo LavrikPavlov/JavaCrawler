@@ -190,7 +190,7 @@ public class Searcher {
             double score = entry.getValue();
             String urlName = getUrlName(urlId);
 
-            System.out.printf("%.2f %-5d %s%n", score, urlId, urlName);
+            System.out.printf("%.2f\t%5d\t%s%n", score, urlId, urlName);
         }
 
         return pagerank;
@@ -255,11 +255,14 @@ public class Searcher {
                     int urlId = urlListResultSet.getInt("id");
                     double pr = 0.15;
 
-                    ResultSet fromUrlResultSet = con.createStatement().executeQuery("SELECT DISTINCT fromURLId FROM linkBetweenURL WHERE toURLId=" + urlId);
+                    ResultSet fromUrlResultSet = con.createStatement()
+                            .executeQuery("SELECT DISTINCT fromURLId FROM linkBetweenURL WHERE toURLId=" + urlId);
                     while (fromUrlResultSet.next()) {
                         int fromUrlId = fromUrlResultSet.getInt("fromURLId");
-                        ResultSet linkingPrResultSet = con.createStatement().executeQuery("SELECT score FROM pageRank WHERE urlId=" + fromUrlId);
-                        ResultSet linkingCountResultSet = con.createStatement().executeQuery("SELECT count(*) FROM linkBetweenURL WHERE fromURLId=" + fromUrlId);
+                        ResultSet linkingPrResultSet = con.createStatement()
+                                .executeQuery("SELECT score FROM pageRank WHERE urlId=" + fromUrlId);
+                        ResultSet linkingCountResultSet = con.createStatement()
+                                .executeQuery("SELECT count(*) FROM linkBetweenURL WHERE fromURLId=" + fromUrlId);
 
                         if (linkingPrResultSet.next() && linkingCountResultSet.next()) {
                             double linkingPr = linkingPrResultSet.getDouble("score");
@@ -267,7 +270,6 @@ public class Searcher {
                             pr += 0.85 * (linkingPr / linkingCount);
                         }
                     }
-//                    System.out.println("pr: " + pr);
                     con.createStatement().execute("UPDATE pageRank SET score=" + pr + " WHERE urlId=" + urlId);
                 }
             }

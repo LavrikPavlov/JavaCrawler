@@ -20,9 +20,13 @@ public class App {
                     markedUrl.add(urlId);
                 }
             }
+            System.out.println();
+            mySearcher.pagerankScore(rowsLoc);
 
             System.out.println(markedUrl);
             System.out.println();
+            System.out.println(rowsLoc);
+
 
             List<String> testQueryList = new ArrayList<>();
             testQueryList.add("Новости");
